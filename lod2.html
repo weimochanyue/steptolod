@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>test lod</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				background:#000;
+				color:#fff;
+				padding:0;
+				margin:0;
+				font-weight: bold;
+				overflow:hidden;
+			}
+			#info {
+				position: absolute;
+				top: 0px; width: 100%;
+				color: #ffffff;
+				padding: 5px;
+				font-family: Monospace;
+				font-size: 13px;
+				text-align: center;
+				z-index:100;
+			}
+			a { color:red }
+		</style>
+	</head>
+
+	<body>
+		<div id="info">
+			<a href="http://threejs.org" target="_blank" rel="noopener">three.js</a> - level-of-details WebGL example
+		</div>
+
+
+		<script src="js/three.js"></script>
+		<script src="js/TrackballControls.js"></script>
+		<script src="js/Detector.js"></script>
+		<script src="js/stats.min.js"></script>
+
+		<script src="js/MTLLoader.js"></script>
+		<script src="js/LoaderSupport.js"></script>
+		<script src="js/OBJLoader2.js"></script>
+		<script src="js/OBJLoader.js"></script>
+
+		<script>
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+			var container, stats;
+			var camera, scene, renderer;
+			var geometry, objects;
+			var controls
+			init();
+			animate();
+			function init() {
+				container = document.createElement( 'div' );
+				document.body.appendChild( container );
+				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 5000 );
+				camera.position.z = 5000;
+
+				controls = new THREE.TrackballControls( camera );
+
+				scene = new THREE.Scene();
+				scene.autoUpdate = false;
+
+				var light = new THREE.PointLight( 0xff2200 );
+				light.position.set( 0, 0, 0 );
+				scene.add( light );
+
+				var light = new THREE.DirectionalLight( 0xffffff );
+				light.position.set( 0, 0, 1 ).normalize();
+				scene.add( light );
+
+				var objLocate = "../models/cyt_merged_model/";
+
+				var level = 5;
+				var i, j, mesh, lod;
+
+				lod = new THREE.LOD();
+
+				var index = 1;
+				var addLod = function(object){
+					distance = 5000 - (((5000-1000)/(level+1))*index + 1000);
+					mesh = object.children[0];
+					mesh.scale.set( 1.5, 1.5, 1.5 );
+					mesh.updateMatrix();
+					mesh.matrixAutoUpdate = false;
+					lod.addLevel( mesh, distance );
+					index++;
+				}
+
+				for ( i = 0; i < (level + 1); i ++ ) {
+					var loader = new THREE.OBJLoader();
+					var filename = objLocate+'level_'+i+'_0_0.obj';
+					loader.load(
+						filename,
+						addLod
+					);
+				}
+
+
+				lod.position.x = 0;
+				lod.position.y = 0;
+				lod.position.z = 800;
+				lod.updateMatrix();
+				lod.matrixAutoUpdate = false;
+				scene.add( lod );
+
+				renderer = new THREE.WebGLRenderer();
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				container.appendChild( renderer.domElement );
+				window.addEventListener( 'resize', onWindowResize, false );
+			}
+
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+			}
+			function animate() {
+				requestAnimationFrame( animate );
+				render();
+			}
+			function render() {
+				controls.update();
+				scene.updateMatrixWorld();
+				scene.traverse( function ( object ) {
+					if ( object instanceof THREE.LOD ) {
+						object.update( camera );
+					}
+				} );
+				renderer.render( scene, camera );
+			}
+		</script>
+	</body>
+</html>

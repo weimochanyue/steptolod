@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>test lod</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				background:#000;
+				color:#fff;
+				padding:0;
+				margin:0;
+				font-weight: bold;
+				overflow:hidden;
+			}
+			#info {
+				position: absolute;
+				top: 0px; width: 100%;
+				color: #ffffff;
+				padding: 5px;
+				font-family: Monospace;
+				font-size: 13px;
+				text-align: center;
+				z-index:100;
+			}
+			a { color:red }
+		</style>
+	</head>
+
+	<body>
+		<div id="info">
+			<a href="http://threejs.org" target="_blank" rel="noopener">three.js</a> - level-of-details WebGL example
+		</div>
+
+
+		<script src="js/three.js"></script>
+		<script src="js/TrackballControls.js"></script>
+		<script src="js/Detector.js"></script>
+		<script src="js/stats.min.js"></script>
+
+		<script src="js/MTLLoader.js"></script>
+		<script src="js/LoaderSupport.js"></script>
+		<script src="js/OBJLoader2.js"></script>
+		<script src="js/OBJLoader.js"></script>
+
+		<script>
+		// 四叉树模型文件算法
+		// var level = 5;
+		// for(var l =0; l<= level; l++){
+		// 	sideW = Math.pow(2,l);
+		// 	for(var m=1;m<=sideW;m++){
+		// 		for(var n=1; n<=sideW;n++){
+		// 			var x = 32 - m*Math.pow(2,(5-l));
+		// 			var y = 32 - n*Math.pow(2,(5-l));
+		// 			console.log('tile_'+l+'_'+x+'_'+y);
+		// 		}
+		// 	}
+		// }
+		// 四叉树模型文件算法
+
+
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+			var container, stats;
+			var camera, scene, renderer;
+			var geometry, objects;
+			var controls
+			init();
+			animate();
+			function init() {
+				container = document.createElement( 'div' );
+				document.body.appendChild( container );
+				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.1, 15000 );
+				camera.position.z = 1000;
+
+				controls = new THREE.TrackballControls( camera );
+
+				scene = new THREE.Scene();
+				scene.autoUpdate = false;
+
+				// var light = new THREE.PointLight( 0xff2200 );
+				// light.position.set( 0, 0, 0 );
+				// scene.add( light );
+				// var light = new THREE.DirectionalLight( 0xffffff );
+				// light.position.set( 0, 0, 1 ).normalize();
+				// scene.add( light );
+
+			    scene.add( new THREE.AmbientLight( 0x999999 ) );
+			    var pointLight = new THREE.PointLight( 0x999999, 0.6 );
+			    pointLight.position.set( 80, 90, 150 );
+			    scene.add( pointLight );
+
+				var objLocate = "../models/cyt_model/";
+
+				var level = 5;
+				var sideW;
+				var l, m, n;
+				var mesh, group, lod;
+				// define lod
+				lod = new THREE.LOD();
+
+
+				var i = j = 1;
+				var counts = [Math.pow(4,0),Math.pow(4,1),Math.pow(4,2),Math.pow(4,3),Math.pow(4,4),Math.pow(4,5)];
+				var dist = [2000,1500,1200,1000,800,500];
+				var addLod = function(object){
+					mesh = object.children[0];
+					group.add( mesh );
+
+					if(i == counts[j-1]){
+						// var distance = 15000 - (((15000-1000)/(level+1))*j + 9000);
+						var distance = dist[j];
+						group.updateMatrix();
+						group.matrixAutoUpdate = false;
+						console.log(group.children.length);
+						lod.addLevel( group, distance );
+						group = new THREE.Group();
+						i = 1;
+						j++;
+					}
+					else{
+						i++;
+					}
+				}
+
+
+				for(l =0; l<(level+1); l++){
+					sideW = Math.pow(2,l); //每边分块
+					
+					group = new THREE.Object3D();//create an empty container
+					for(m=1;m<(sideW+1);m++){
+						for(n=1; n<(sideW+1);n++){
+							var step = Math.pow(2,(5-l));
+							var x = 32 - m*step;
+							var y = 32 - n*step;
+
+							// var callback = function(object){
+							// 	// console.log(object.id);
+							// 	// console.log(l);
+							// 	mesh = object.children[0];
+							// 	group.add( mesh );//add a mesh with geometry to it
+							// }
+							
+							// load obj
+							var loader = new THREE.OBJLoader();
+							var filename = objLocate+'tile_'+l+'_'+x+'_'+y+'_tex.obj';
+							loader.load(
+								filename,
+								addLod
+								// function ( object ) {
+								// 	mesh = object.children[0];
+								// 	group.add( mesh );//add a mesh with geometry to it
+								// 	console.log('add obj - '+filename + ' to '+ group.id);
+								// }
+							);
+						}
+					}
+				}
+
+				lod.position.x = 0;
+				lod.position.y = 0;
+				lod.position.z = 0;
+				lod.updateMatrix();
+				lod.matrixAutoUpdate = false;
+				scene.add( lod );
+
+				renderer = new THREE.WebGLRenderer();
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				container.appendChild( renderer.domElement );
+				window.addEventListener( 'resize', onWindowResize, false );
+			}
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+			}
+			function animate() {
+				requestAnimationFrame( animate );
+				render();
+			}
+			function render() {
+				controls.update();
+				scene.updateMatrixWorld();
+				scene.traverse( function ( object ) {
+					if ( object instanceof THREE.LOD ) {
+						object.update( camera );
+					}
+				} );
+				renderer.render( scene, camera );
+			}
+		</script>
+	</body>
+</html>
