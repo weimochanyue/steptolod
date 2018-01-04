@@ -46,64 +46,39 @@
 		<script>
 			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
 			var container, stats;
-			var camera, scene, renderer;
+			var camera, scene, renderer, axesHelper;
 			var geometry, objects;
-			var controls
+			var controls;
+			// var lod, group;
+			var objPath = "../models/xuhui1204pro_model/";
+			var total_level = 7;
+			var start_level = 3;
+			var end_level = 4;
+			var distance = [500, 400, 350, 300, 250, 200, 170, 150, 120];
 			init();
+			initLod(start_level);
 			animate();
+
 			function init() {
 				container = document.createElement( 'div' );
 				document.body.appendChild( container );
-				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 5000 );
-				camera.position.z = 5000;
+				camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.1, 15000 );
+				camera.position.z = 400;
 
 				controls = new THREE.TrackballControls( camera );
 
 				scene = new THREE.Scene();
-				scene.autoUpdate = false;
 
-				var light = new THREE.PointLight( 0xff2200 );
-				light.position.set( 0, 0, 0 );
-				scene.add( light );
+				var ambientLight = new THREE.AmbientLight( 0xcccccc, 0.4 );
+				scene.add( ambientLight );
 
-				var light = new THREE.DirectionalLight( 0xffffff );
-				light.position.set( 0, 0, 1 ).normalize();
-				scene.add( light );
+				var pointLight = new THREE.PointLight( 0xffffff, 0.8 );
+				camera.add( pointLight );
+				scene.add( camera );
 
-				var objLocate = "../models/cyt_merged_model/";
-
-				var level = 5;
-				var i, j, mesh, lod;
-
-				lod = new THREE.LOD();
-
-				var index = 1;
-				var addLod = function(object){
-					distance = 5000 - (((5000-1000)/(level+1))*index + 1000);
-					mesh = object.children[0];
-					mesh.scale.set( 1.5, 1.5, 1.5 );
-					mesh.updateMatrix();
-					mesh.matrixAutoUpdate = false;
-					lod.addLevel( mesh, distance );
-					index++;
-				}
-
-				for ( i = 0; i < (level + 1); i ++ ) {
-					var loader = new THREE.OBJLoader();
-					var filename = objLocate+'level_'+i+'_0_0.obj';
-					loader.load(
-						filename,
-						addLod
-					);
-				}
-
-
-				lod.position.x = 0;
-				lod.position.y = 0;
-				lod.position.z = 800;
-				lod.updateMatrix();
-				lod.matrixAutoUpdate = false;
-				scene.add( lod );
+				var polarGridHelper = new THREE.PolarGridHelper( 800, 16, 8, 64, 0x0000ff, 0x808080 );
+				polarGridHelper.rotateX( - Math.PI / 2 );
+				scene.add( polarGridHelper );
 
 				renderer = new THREE.WebGLRenderer();
 				renderer.setPixelRatio( window.devicePixelRatio );
@@ -111,7 +86,6 @@
 				container.appendChild( renderer.domElement );
 				window.addEventListener( 'resize', onWindowResize, false );
 			}
-
 			function onWindowResize() {
 				camera.aspect = window.innerWidth / window.innerHeight;
 				camera.updateProjectionMatrix();
@@ -130,6 +104,117 @@
 					}
 				} );
 				renderer.render( scene, camera );
+			}
+
+			var is_level_finished = false;
+			// add target level of lod
+			function initLod(target_level){
+				var sideW = Math.pow(2,target_level);
+				var sideTotal = Math.pow(2,total_level);
+				var m, n;
+
+				for(m=1;m<(sideW+1);m++){
+					for(n=1; n<(sideW+1);n++){
+						var lod_step =  new THREE.LOD();
+						var step = Math.pow(2,(total_level-target_level));
+						var x = sideTotal - m*step;
+						var y = sideTotal - n*step;
+						
+						if(x==0 && y==0){
+							is_level_finished = true;
+						}
+						// load obj
+						var filename = 'tile_'+target_level+'_'+x+'_'+y+'_tex';
+						addLoadModel(target_level, filename, is_level_finished, lod_step, x, y);
+					}
+				}
+			}
+
+			// add obj mesh to group
+			function addLoadModel(level, filename, is_finished, lod_step, x, y){
+				var mtlLoader = new THREE.MTLLoader();
+				mtlLoader.setPath(objPath);
+				mtlLoader.load( filename+'.mtl', function( materials ) {
+
+					materials.preload();
+
+					var objLoader = new THREE.OBJLoader();
+					objLoader.setMaterials( materials );
+					objLoader.setPath(objPath);
+					objLoader.load( filename+'.obj', function (object){
+						var mesh = object.children[0];
+						addObjtoGroup(level,mesh, is_finished, lod_step, x, y);
+					});
+				}, onProgress, onError);
+			}
+
+
+			var stepgroup;
+			// add obj mesh to group
+			function addLoadModelStep(level, filename, lod_step, stepgroup){
+				var mtlLoader = new THREE.MTLLoader();
+				mtlLoader.setPath(objPath);
+				mtlLoader.load( filename+'.mtl', function( materials ) {
+
+					materials.preload();
+
+					var objLoader = new THREE.OBJLoader();
+					objLoader.setMaterials( materials );
+					objLoader.setPath(objPath);
+					objLoader.load( filename+'.obj', function (object){
+						var mesh = object.children[0];
+						var dist = distance[level];
+						mesh.updateMatrix();
+						mesh.matrixAutoUpdate = false;
+						stepgroup.add( mesh );
+						// addObjtoGroup(level,mesh, is_finished, lod_step);
+					});
+				}, onProgress, onError);
+			}
+			// add group mesh to lod
+			function addObjtoGroup(level,mesh, is_finished, lod_step, x, y){
+				// group.add( mesh );
+				// var levelLength = Math.pow(4,level);
+				// if(is_finished){
+					var dist = distance[level];
+					var t,s;
+					// group.updateMatrix();
+					// group.matrixAutoUpdate = false;
+
+					mesh.updateMatrix();
+					mesh.matrixAutoUpdate = false;
+					lod_step.addLevel( mesh, dist );
+					stepgroup = new THREE.Group();
+					var next_level = level+1;
+					for(t=0; t<2;t++){
+						for(s=0; s<2;s++){
+							var step = Math.pow(2,(total_level-next_level));
+							var step_x = x + t* step;
+							var step_y = y + s* step;
+							var stepfilename = 'tile_'+next_level+'_'+step_x+'_'+step_y+'_tex';;
+							addLoadModelStep(next_level, stepfilename, lod_step, stepgroup)
+						}
+					}
+
+					stepgroup.updateMatrix();
+					stepgroup.matrixAutoUpdate = false;
+					lod_step.addLevel( stepgroup, distance[next_level] );
+
+					lod_step =  new THREE.LOD();
+					// if(level < end_level){
+					// 	group = new THREE.Group();
+					// 	initLod(level+1);
+					// // }
+					// is_level_finished = false;
+				// }
+			}
+
+			function onProgress(){
+
+			}
+
+			function onError(){
+				// console.log(" ??? ");
 			}
 		</script>
 	</body>

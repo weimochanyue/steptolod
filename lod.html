@@ -67,9 +67,9 @@
 			var lod, group;
 			var objPath = "../models/xuhui1204pro_model/";
 			var total_level = 7;
-			var start_level = 2;
-			var end_level = 2;
-			var distance = [500, 400, 300, 200, 100];
+			var start_level = 0;
+			var end_level = 3;
+			var distance = [500, 400, 350, 300, 250, 200, 170, 150, 300];
 			init();
 			initLod(start_level);
 			animate();
@@ -77,25 +77,33 @@
 			function init() {
 				container = document.createElement( 'div' );
 				document.body.appendChild( container );
-				camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 1, 1000 );
+				camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.1, 15000 );
 				camera.position.z = 400;
 
 				controls = new THREE.TrackballControls( camera );
 
 				scene = new THREE.Scene();
 
-				light = new THREE.PointLight();
-				light.position.set( 200, 100, 150 );
-				scene.add( light );
+				// light = new THREE.PointLight();
+				// light.position.set( 200, 100, 150 );
+				// scene.add( light );
 
-				var gridHelper = new THREE.GridHelper( 400, 40, 0x0000ff, 0x808080 );
+				var ambientLight = new THREE.AmbientLight( 0xcccccc, 0.4 );
+				scene.add( ambientLight );
+
+				var pointLight = new THREE.PointLight( 0xffffff, 0.8 );
+				camera.add( pointLight );
+				scene.add( camera );
+
+				// var gridHelper = new THREE.GridHelper( 400, 40, 0x0000ff, 0x808080 );
 				// gridHelper.position.y = - 150;
 				// gridHelper.position.x = - 150;
-				scene.add( gridHelper );
+				// scene.add( gridHelper );
 
-				var polarGridHelper = new THREE.PolarGridHelper( 200, 16, 8, 64, 0x0000ff, 0x808080 );
+				var polarGridHelper = new THREE.PolarGridHelper( 800, 16, 8, 64, 0x0000ff, 0x808080 );
 				// polarGridHelper.position.y = - 150;
 				// polarGridHelper.position.x = 200;
+				polarGridHelper.rotateX( - Math.PI / 2 );
 				scene.add( polarGridHelper );
 
 
@@ -142,6 +150,7 @@
 				renderer.render( scene, camera );
 			}
 
+			var is_level_finished = false;
 			// add target level of lod
 			function initLod(target_level){
 				var sideW = Math.pow(2,target_level);
@@ -153,37 +162,47 @@
 						var step = Math.pow(2,(total_level-target_level));
 						var x = sideTotal - m*step;
 						var y = sideTotal - n*step;
-							
+						
+						if(x==0 && y==0){
+							is_level_finished = true;
+						}
 						// load obj
 						var filename = 'tile_'+target_level+'_'+x+'_'+y+'_tex';
-						addLoadModel(target_level, filename);
+						addLoadModel(target_level, filename, is_level_finished);
 					}
 				}
 			}
 
 			// add obj mesh to group
-			function addLoadModel(level, filename){
-				var mtlLoader = new THREE.MTLLoader();
-				mtlLoader.setPath(objPath);
-				mtlLoader.load( filename+'.mtl', function( materials ) {
+			// function addLoadModel(level, filename, is_finished){
+			// 	var mtlLoader = new THREE.MTLLoader();
+			// 	mtlLoader.setPath(objPath);
+			// 	mtlLoader.load( filename+'.mtl', function( materials ) {
 
-					materials.preload();
+			// 		materials.preload();
 
+			// 		var objLoader = new THREE.OBJLoader();
+			// 		objLoader.setMaterials( materials );
+			// 		objLoader.setPath(objPath);
+			// 		objLoader.load( filename+'.obj', function (object){
+			// 			var mesh = object.children[0];
+			// 			addObjtoGroup(level,mesh, is_finished);
+			// 		});
+			// 	}, onProgress, onError);
+			// }
+			function addLoadModel(level, filename, is_finished){
 					var objLoader = new THREE.OBJLoader();
-					objLoader.setMaterials( materials );
 					objLoader.setPath(objPath);
 					objLoader.load( filename+'.obj', function (object){
 						var mesh = object.children[0];
-						addObjtoGroup(level,mesh);
+						addObjtoGroup(level,mesh, is_finished);
 					});
-				}, onProgress, onError);
 			}
 			// add group mesh to lod
-			function addObjtoGroup(level,mesh){
+			function addObjtoGroup(level,mesh, is_finished){
 				group.add( mesh );
 				var levelLength = Math.pow(4,level);
-				var currentLength = group.children.length;
-				if(levelLength == currentLength){
+				if(is_finished){
 					var dist = distance[level];
 					group.updateMatrix();
 					group.matrixAutoUpdate = false;
@@ -192,6 +211,7 @@
 						group = new THREE.Group();
 						initLod(level+1);
 					}
+					is_level_finished = false;
 				}
 			}
 
